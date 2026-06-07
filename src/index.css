@@ -1,0 +1,121 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+
+@theme {
+  --color-background: hsl(220, 20%, 96%);
+  --color-foreground: hsl(224, 30%, 8%);
+  --color-primary: hsl(217, 90%, 55%);
+  --color-primary-foreground: hsl(0, 0%, 100%);
+  --color-secondary: hsl(48, 95%, 55%);
+  --color-secondary-foreground: hsl(224, 30%, 8%);
+  --color-accent: hsl(0, 85%, 55%);
+  --color-accent-foreground: hsl(0, 0%, 100%);
+  --color-card: hsl(0, 0%, 100%);
+  --color-card-foreground: hsl(224, 30%, 8%);
+  --color-border: hsl(220, 15%, 85%);
+  --color-input: hsl(220, 15%, 94%);
+  --radius-lg: 1rem;
+  --radius-md: 0.75rem;
+  --radius-sm: 0.5rem;
+}
+
+.dark {
+  --color-background: hsl(224, 30%, 8%);
+  --color-foreground: hsl(220, 15%, 94%);
+  --color-card: hsl(224, 30%, 12%);
+  --color-card-foreground: hsl(220, 15%, 94%);
+  --color-border: hsl(224, 30%, 18%);
+  --color-input: hsl(224, 30%, 14%);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    box-sizing: border-box;
+  }
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Gradients inspirés du drapeau de la RDC */
+.bg-gradient-rdc {
+  background: linear-gradient(135deg, hsl(217, 90%, 55%) 0%, hsl(48, 95%, 55%) 50%, hsl(0, 85%, 55%) 100%);
+}
+.bg-gradient-blue {
+  background: linear-gradient(135deg, hsl(217, 90%, 55%), hsl(217, 90%, 45%));
+}
+
+.btn-elite {
+  @apply px-4 sm:px-6 py-2.5 font-semibold rounded-xl transition-all duration-200 active:scale-95;
+  background: linear-gradient(135deg, hsl(217, 90%, 55%), hsl(217, 90%, 45%));
+  color: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.btn-elite:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+.btn-elite:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Cartes vitrées – plus opaques pour lisibilité */
+.card-glass {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+.dark .card-glass {
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+.card-inner {
+  background: var(--color-card);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+}
+
+/* Animations */
+@keyframes slide-in-from-top {
+  from { transform: translateY(-1rem); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 102, 255, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(0, 102, 255, 0); }
+}
+.animate-in {
+  animation-duration: 0.3s;
+  animation-fill-mode: both;
+}
+.slide-in-from-top-2 {
+  animation-name: slide-in-from-top;
+}
+.fade-in {
+  animation-name: fade-in;
+}
+.animate-bounce {
+  animation: bounce 1s ease-in-out infinite;
+}
+.animate-pulse-glow {
+  animation: pulse-glow 1.5s infinite;
+}
