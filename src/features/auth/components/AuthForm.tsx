@@ -30,28 +30,15 @@ export const AuthForm: React.FC = () => {
 
     try {
       if (isLoginMode) {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Erreur de connexion");
 
-        // Récupérer le profil
-        const { data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('name, role')
-            .eq('id', data.user.id);
-
-        if (profileError || !profileData || profileData.length === 0) {
-            console.error("Erreur récupération profil:", profileError);
-            throw new Error("Impossible de récupérer les informations de votre profil.");
-        }
-
-        const profile = profileData[0];
-
-        loginAction({
-            id: data.user.id as any,
-            name: profile.name,
-            email: data.user.email!,
-            role: profile.role
-        }, data.session.access_token);
+        loginAction(data.user, data.token);
 
         // Redirection dynamique basée sur le rôle
         const roleRedirects: Record<string, string> = {
@@ -60,20 +47,21 @@ export const AuthForm: React.FC = () => {
             cook: '/cuisine/kds'
         };
 
-        if (roleRedirects[profile.role]) {
-           navigate(roleRedirects[profile.role]);
+        if (roleRedirects[data.user.role]) {
+           navigate(roleRedirects[data.user.role]);
         } else if (location.state?.fromCart || totalArticles > 0) {
            navigate('/paiement'); 
         } else {
            navigate('/');
         }
       } else {
-        const { error } = await supabase.auth.signUp({ 
-            email, 
-            password, 
-            options: { data: { name: nom } } 
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: nom, email, password }),
         });
-        if (error) throw error;
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Erreur lors de la création du compte");
 
         setSuccessMessage("Compte créé avec succès ! Connectez-vous maintenant.");
         setIsLoginMode(true); 

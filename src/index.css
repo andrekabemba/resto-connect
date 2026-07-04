@@ -2,21 +2,21 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
 
 @theme {
-  --color-background: hsl(220, 20%, 96%);
-  --color-foreground: hsl(224, 30%, 8%);
-  --color-primary: hsl(217, 90%, 55%);
-  --color-primary-foreground: hsl(0, 0%, 100%);
-  --color-secondary: hsl(48, 95%, 55%);
-  --color-secondary-foreground: hsl(224, 30%, 8%);
-  --color-accent: hsl(0, 85%, 55%);
-  --color-accent-foreground: hsl(0, 0%, 100%);
-  --color-card: hsl(0, 0%, 100%);
-  --color-card-foreground: hsl(224, 30%, 8%);
-  --color-border: hsl(220, 15%, 85%);
-  --color-input: hsl(220, 15%, 94%);
-  --radius-lg: 1rem;
-  --radius-md: 0.75rem;
-  --radius-sm: 0.5rem;
+  --color-background: #FAF9F5;
+  --color-foreground: #112222;
+  --color-primary: #D96B27;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #112222;
+  --color-secondary-foreground: #FFFFFF;
+  --color-accent: #D96B27;
+  --color-accent-foreground: #FFFFFF;
+  --color-card: #FFFFFF;
+  --color-card-foreground: #112222;
+  --color-border: #E5E7EB;
+  --color-input: #F9FAFB;
+  --radius-lg: 1.5rem;
+  --radius-md: 1rem;
+  --radius-sm: 0.75rem;
 }
 
 .dark {
