@@ -48,7 +48,7 @@ export const ClientReservation: React.FC = () => {
   ];
 
   // Filtrer uniquement les tables libres
-  const tablesLibres = tables.filter(t => t.statut === 'LIBRE');
+  const tablesLibres = dbTables.filter(t => t.status === 'libre');
 
   // Gestion de l'ajout/retrait d'un plat
   const handleTogglePlat = (plat: typeof cataloguePlats[0]) => {
@@ -194,8 +194,8 @@ export const ClientReservation: React.FC = () => {
                   >
                     <option value="auto">Placement automatique optimal</option>
                     {tablesLibres.map(table => (
-                      <option key={table.numero} value={table.numero}>
-                        Table N°{table.numero} ({table.capacite} places max)
+                      <option key={table.number} value={table.number}>
+                        Table N°{table.number} ({table.capacity} places max)
                       </option>
                     ))}
                   </select>
