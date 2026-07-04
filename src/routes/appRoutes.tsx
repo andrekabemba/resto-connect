@@ -19,6 +19,7 @@ import { ClientReservation } from '../features/client-menu/components/ClientRese
 import { AdminDashboard } from '../features/admin-dashboard/components/AdminDashboard';
 import { UserManager } from '../features/admin-dashboard/components/UserManager';
 import { MenuManager } from '../features/admin-dashboard/components/MenuManager';
+import { InventoryManager } from '../features/admin-dashboard/components/InventoryManager';
 
 // Staff Features
 import { TablePlanPage } from '../features/post-salle/components/TablePlan';
@@ -49,9 +50,9 @@ export const appRouter = createBrowserRouter([
       // Admin
       { path: "admin/dashboard", element: <AdminDashboard /> },
       { path: "admin/users", element: <UserManager /> },
-      { path: "admin/inventory", element: <div className="p-8"><h1>Inventaire (À implémenter)</h1></div> },
+      { path: "admin/inventory", element: <InventoryManager /> },
       { path: "admin/menu", element: <MenuManager /> },
-      { path: "admin/reports", element: <div className="p-8"><h1>Rapports (À implémenter)</h1></div> },
+      { path: "admin/reports", element: <AdminDashboard /> }, // Rapport intégré au dashboard pour l'instant
       
       // Serveur
       { path: "salle/tables", element: <TablePlanPage /> },

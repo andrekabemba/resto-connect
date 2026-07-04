@@ -1,53 +1,55 @@
 import React, { useEffect, useState } from 'react';
-// Importation directe du store Zustand
 import { usePosStore } from '../../post-salle/posSlice';
+import { apiService } from '../../../services/apiService';
+import { Search, ShoppingBag, Utensils, Star, Info } from 'lucide-react';
 
 interface MenuItem {
   id: string;
-  nom: string;
+  name: string;
   description: string;
-  prix: number;
+  price: number;
   imageUrl?: string;
-  disponible: boolean;
-  categorie: string;
+  available: number;
+  category_name?: string;
 }
 
 export const MenuDisplay: React.FC = () => {
   const [animated, setAnimated] = useState(false);
-  
-  // États pour la recherche et le filtrage des catégories
+  const [items, setItems] = useState<MenuItem[]>([]);
   const [selectedCategorie, setSelectedCategorie] = useState('Tous');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Récupération de l'action du store Zustand
   const addToCart = usePosStore((state) => state.addToCart);
 
   useEffect(() => {
     setAnimated(true);
+    fetchMenu();
   }, []);
 
+  const fetchMenu = async () => {
+    try {
+      const response = await apiService.get('/menu');
+      setItems(response.data.menu || []);
+    } catch (err) {
+      console.error("Erreur chargement menu", err);
+    }
+  };
+
   const handleAjouterAuPanier = (item: MenuItem) => {
-    console.log("👉 Ajout au panier via Zustand :", item.nom);
     addToCart({
       id: item.id,
-      nom: item.nom,
-      prix: item.prix,
+      nom: item.name,
+      prixVente: item.price,
       imageUrl: item.imageUrl
     });
   };
 
-  const itemsAffiches: MenuItem[] = [
-    { id: '1', nom: 'Burger RestoConnect', description: "Un steak juteux, du fromage fondant, notre sauce secrète maison et un pain brioché toasté.", prix: 12.50, disponible: true, categorie: 'Burger', imageUrl: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80' },
-    { id: '2', nom: 'Pizza 4 Fromages', description: "Sauce tomate maison, mozzarella premium, gorgonzola, chèvre et copeaux de parmesan.", prix: 14.00, disponible: true, categorie: 'Pizza', imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=400&q=80' },
-    { id: '3', nom: 'Salade César', description: "Romaine croquante, émincé de poulet doré, croutons à l'ail et notre fameuse sauce César.", prix: 9.50, disponible: false, categorie: 'Salades', imageUrl: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&w=400&q=80' }
-  ];
+  const categoriesList = ['Tous', ...Array.from(new Set(items.map(item => item.category_name || 'Général')))];
 
-  const listeCategories = ['Tous', ...Array.from(new Set(itemsAffiches.map(item => item.categorie)))];
-
-  const itemsFilgres = itemsAffiches.filter(item => {
-    const correspondCategorie = selectedCategorie === 'Tous' || item.categorie === selectedCategorie;
-    const correspondRecherche = item.nom.toLowerCase().includes(searchQuery.toLowerCase());
-    return correspondCategorie && correspondRecherche;
+  const filteredItems = items.filter(item => {
+    const matchCat = selectedCategorie === 'Tous' || (item.category_name || 'Général') === selectedCategorie;
+    const matchSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchCat && matchSearch;
   });
 
   return (
@@ -96,7 +98,7 @@ export const MenuDisplay: React.FC = () => {
           </div>
 
           <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none snap-x">
-            {listeCategories.map((cat) => {
+            {categoriesList.map((cat) => {
               const estActif = selectedCategorie === cat;
               return (
                 <button
@@ -115,65 +117,75 @@ export const MenuDisplay: React.FC = () => {
           </div>
         </div>
 
-        {/* 4. GRILLE DES PLATS (S'ajuste de 2 à 4 colonnes selon l'écran pour un max de visibilité !) */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between border-l-2 border-[#D96B27] pl-3 text-left">
-            <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-xl font-bold text-[#112222]">
-              {selectedCategorie === 'Tous' ? 'Nos meuilleures Selections du jour' : selectedCategorie}
-            </h2>
+        {/* 4. GRILLE DES PLATS */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between border-l-4 border-[#D96B27] pl-4 text-left">
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif" }} className="text-2xl font-black text-[#112222]">
+                {selectedCategorie === 'Tous' ? 'Nos meilleures sélections' : selectedCategorie}
+              </h2>
+              <p className="text-xs text-gray-400 font-medium uppercase tracking-widest">Cuisiné avec amour et expertise</p>
+            </div>
           </div>
 
-          {itemsFilgres.length === 0 ? (
-            <div className="text-center py-24 text-gray-400 text-sm font-light bg-white rounded-3xl border border-gray-100">
-              Aucun plat ne correspond à votre recherche actuelle.
+          {filteredItems.length === 0 ? (
+            <div className="text-center py-24 bg-white rounded-[2rem] border border-gray-50 shadow-inner">
+              <div className="p-4 bg-gray-50 w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center text-gray-300">
+                <Utensils size={32} />
+              </div>
+              <p className="text-gray-400 text-sm font-medium">Aucun plat ne correspond à votre recherche.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-              {itemsFilgres.map((item) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredItems.map((item) => (
                 <div 
                   key={item.id} 
-                  className="bg-white border border-gray-100 rounded-3xl p-3.5 shadow-xs hover:shadow-xl hover:border-gray-200/80 transition-all duration-300 flex flex-col justify-between text-left relative group"
+                  className="bg-white border border-gray-50 rounded-[2rem] p-4 shadow-sm hover:shadow-2xl transition-all duration-500 flex flex-col justify-between text-left group"
                 >
-                  {/* Image du plat */}
-                  <div className="w-full rounded-2xl overflow-hidden bg-gray-50 relative mb-3.5 shadow-inner">
+                  <div className="w-full h-48 rounded-3xl overflow-hidden bg-gray-50 relative mb-4">
                     <img 
-                      src={item.imageUrl} 
-                      alt={item.nom} 
-                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${!item.disponible && 'grayscale opacity-50'}`}
+                      src={item.imageUrl || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'}
+                      alt={item.name}
+                      className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!item.available && 'grayscale opacity-50'}`}
                     />
-                    {!item.disponible && (
-                      <span className="absolute top-2.5 left-2.5 bg-[#112222]/95 text-white font-bold text-[9px] uppercase tracking-wider px-2.5 py-1 rounded-lg shadow-sm">
-                        Épuisé
-                      </span>
+                    {!item.available && (
+                      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px] flex items-center justify-center">
+                         <span className="bg-white text-black font-black text-[10px] uppercase tracking-tighter px-3 py-1 rounded-full shadow-xl">Épuisé</span>
+                      </div>
                     )}
+                    <div className="absolute top-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="bg-white/90 backdrop-blur text-[#D96B27] p-2 rounded-full shadow-lg block">
+                        <Star size={14} fill="currentColor" />
+                      </span>
+                    </div>
                   </div>
 
-                  {/* Zone de textes descriptive */}
-                  <div className="flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-bold text-[#112222] group-hover:text-[#D96B27] transition-colors line-clamp-1">{item.nom}</h3>
-                      <p className="text-gray-400 text-xs font-light line-clamp-2 leading-relaxed">{item.description}</p>
+                  <div className="flex-1 flex flex-col px-1">
+                    <div className="mb-4">
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-base font-black text-[#112222] line-clamp-1">{item.name}</h3>
+                      </div>
+                      <p className="text-gray-400 text-[11px] font-medium line-clamp-2 leading-relaxed min-h-[2.75rem]">{item.description}</p>
                     </div>
                     
-                    {/* Prix et Bouton d'action pro style maquette */}
-                    <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                      <span className="text-sm font-mono font-black text-[#D96B27]">
-                        {item.prix.toFixed(2)} $
-                      </span>
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-50">
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest leading-none mb-1">Prix</p>
+                        <span className="text-lg font-black text-[#D96B27] font-mono">
+                          {item.price.toFixed(2)} $
+                        </span>
+                      </div>
                       
-                      {item.disponible ? (
+                      {item.available ? (
                         <button 
                           onClick={() => handleAjouterAuPanier(item)} 
-                          className="w-8 h-8 bg-[#D96B27] hover:bg-[#b8541d] text-white rounded-xl flex items-center justify-center font-bold text-base transition-all shadow-md transform active:scale-95"
+                          className="bg-[#112222] hover:bg-[#D96B27] text-white px-5 py-2.5 rounded-2xl flex items-center gap-2 font-black text-[10px] uppercase tracking-widest transition-all shadow-lg active:scale-95"
                         >
-                          +
+                          <ShoppingBag size={14} /> Ajouter
                         </button>
                       ) : (
-                        <button 
-                          disabled 
-                          className="w-8 h-8 bg-gray-100 text-gray-400 rounded-xl flex items-center justify-center font-bold text-xs cursor-not-allowed"
-                        >
-                          ✕
+                        <button disabled className="bg-gray-100 text-gray-400 px-5 py-2.5 rounded-2xl font-black text-[10px] uppercase tracking-widest cursor-not-allowed">
+                          Indisponible
                         </button>
                       )}
                     </div>

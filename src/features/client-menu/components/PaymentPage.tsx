@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePosStore } from '../../post-salle/posSlice';
 import { PageTransition } from '../../../components/PageTransition';
+import { apiService } from '../../../services/apiService';
+import { useAuthStore } from '../../auth/authSlice';
 
 // Importation des images officielles des opérateurs
 import orangeLogo from './orange-money.webp';
@@ -12,6 +14,7 @@ type PaymentMethod = 'orange' | 'airtel' | 'mpesa';
 
 export const PaymentPage: React.FC = () => {
   const navigate = useNavigate();
+  const user = useAuthStore((state) => state.user);
   const panier = usePosStore((state) => state.panier);
   const prixTotal = panier.reduce((total, ligne) => total + (ligne.product.prixVente * ligne.quantite), 0);
 
@@ -21,31 +24,51 @@ export const PaymentPage: React.FC = () => {
   const [error, setError] = useState('');
   const [subStepVisible, setSubStepVisible] = useState(true);
 
-  const handlePaymentSubmit = (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    if (!phoneNumber || phoneNumber.length!=10) {
+    if (!phoneNumber || phoneNumber.length < 9) {
       setError('Veuillez saisir un numéro de téléphone valide.');
       return;
     }
 
     setSubStepVisible(false);
     
-    setTimeout(() => {
-      setStep('waiting');
-      setSubStepVisible(true);
-    }, 300);
+    try {
+      // Préparation de la commande pour l'API
+      const orderData = {
+        items: panier.map(item => ({
+          menu_item_id: item.product.id,
+          quantity: item.quantite
+        })),
+        customer_name: user?.name || "Client",
+        customer_phone: phoneNumber,
+        order_type: "sur_place",
+        payment_method: "cash", // Simulé pour l'instant
+      };
 
-    setTimeout(() => {
-      setSubStepVisible(false);
-      
+      await apiService.post('/orders', orderData);
+
       setTimeout(() => {
-        setStep('success');
+        setStep('waiting');
         setSubStepVisible(true);
-        usePosStore.setState({ panier: [] });
       }, 300);
-    }, 4500);
+
+      // Simulation du délai de paiement mobile
+      setTimeout(() => {
+        setSubStepVisible(false);
+
+        setTimeout(() => {
+          setStep('success');
+          setSubStepVisible(true);
+          usePosStore.setState({ panier: [] });
+        }, 300);
+      }, 4500);
+    } catch (err: any) {
+      setError(err.response?.data?.error || "Une erreur est survenue lors de la commande.");
+      setSubStepVisible(true);
+    }
   };
 
   // Configuration des opérateurs incluant les chemins d'images mis à jour

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
+import { ChefHat, Clock, CheckCircle, Flame, RefreshCw, Info } from 'lucide-react';
 
-const STATUS_CONFIG: Record<string, { color: string, icon: string, label: string }> = {
-  pending: { color: 'border-yellow-500', icon: 'hourglass_empty', label: 'En attente' },
-  preparing: { color: 'border-blue-500', icon: 'cooking', label: 'Préparation' },
-  ready: { color: 'border-green-500', icon: 'check_circle', label: 'Prêt' },
+const STATUS_CONFIG: Record<string, { color: string, icon: any, label: string, bgColor: string, textColor: string }> = {
+  pending: { color: 'border-amber-500', icon: Clock, label: 'À préparer', bgColor: 'bg-amber-50', textColor: 'text-amber-700' },
+  preparing: { color: 'border-blue-500', icon: Flame, label: 'En cuisine', bgColor: 'bg-blue-50', textColor: 'text-blue-700' },
+  ready: { color: 'border-green-500', icon: CheckCircle, label: 'Prêt', bgColor: 'bg-green-50', textColor: 'text-green-700' },
 };
 
 export const KdsCuisinePage: React.FC = () => {
@@ -27,49 +28,76 @@ export const KdsCuisinePage: React.FC = () => {
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold flex items-center gap-2">
-            <span className="material-symbols-outlined text-3xl">kitchen</span>
-            Cuisine - Commandes
-        </h2>
-        <button onClick={fetchOrders} className="text-gray-500 hover:text-[var(--color-primary)]">
-            <span className="material-symbols-outlined">refresh</span>
+        <div>
+          <h2 className="text-3xl font-black text-[#112222] flex items-center gap-3">
+              <div className="p-2 bg-[#D96B27] text-white rounded-2xl">
+                <ChefHat size={28} />
+              </div>
+              Écran Cuisine (KDS)
+          </h2>
+          <p className="text-gray-400 font-medium text-xs mt-1 uppercase tracking-widest">Temps réel des préparations</p>
+        </div>
+        <button onClick={fetchOrders} className="p-3 bg-white border border-gray-100 rounded-2xl shadow-sm hover:bg-gray-50 transition-colors">
+            <RefreshCw size={20} className="text-[#D96B27]" />
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {orders.map(order => {
           const config = STATUS_CONFIG[order.status] || STATUS_CONFIG.pending;
+          const Icon = config.icon;
           return (
-            <div key={order.id} className={`bg-[var(--color-card)] p-6 rounded-[var(--radius-lg)] border-l-8 ${config.color} shadow-sm`}>
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="font-bold text-lg">Commande #{order.id}</h3>
-                <span className="flex items-center gap-1 text-xs font-bold uppercase bg-gray-100 px-2 py-1 rounded">
-                    <span className="material-symbols-outlined text-sm">{config.icon}</span> {config.label}
-                </span>
+            <div key={order.id} className={`bg-white rounded-[2rem] border-t-8 ${config.color} shadow-sm overflow-hidden flex flex-col group hover:shadow-xl transition-all duration-300`}>
+              <div className="p-6 pb-4">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h3 className="font-black text-xl text-gray-900 leading-none">#{order.id}</h3>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter mt-1">Table {order.table_id || 'Ext.'}</p>
+                  </div>
+                  <span className={`flex items-center gap-1 text-[9px] font-black uppercase tracking-tighter px-2.5 py-1 rounded-full ${config.bgColor} ${config.textColor}`}>
+                      <Icon size={12} /> {config.label}
+                  </span>
+                </div>
+
+                <div className="bg-gray-50 rounded-2xl p-4 mb-4">
+                   <div className="flex items-center gap-2 mb-3 border-b border-gray-200/50 pb-2">
+                     <Info size={14} className="text-gray-400" />
+                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Articles à préparer</span>
+                   </div>
+                   <ul className="space-y-3">
+                    {order.items.map((item: any) => (
+                      <li key={item.id} className="flex justify-between items-center">
+                        <span className="text-sm font-black text-gray-800">{item.name}</span>
+                        <span className="bg-[#112222] text-white w-6 h-6 flex items-center justify-center rounded-lg text-xs font-black">x{item.quantity}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {order.notes && (
+                  <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl">
+                    <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Notes spéciales :</p>
+                    <p className="text-xs text-red-800 italic">{order.notes}</p>
+                  </div>
+                )}
               </div>
               
-              <p className="text-sm text-gray-600 mb-4 font-medium italic">Table : {order.table_number}</p>
-              
-              <ul className="mb-6 space-y-2 border-t pt-4">
-                {order.items.map((item: any) => (
-                  <li key={item.id} className="text-sm flex justify-between">
-                    <span className="font-medium">{item.name}</span>
-                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">x{item.quantity}</span>
-                  </li>
-                ))}
-              </ul>
-              
-              <div className="flex gap-2 justify-end">
-                {order.status !== 'preparing' && (
-                    <button onClick={() => updateStatus(order.id, 'preparing')} className="bg-blue-600 text-white px-3 py-2 rounded-[var(--radius-sm)] text-xs flex items-center gap-1 hover:bg-blue-700">
-                        <span className="material-symbols-outlined text-sm">cooking</span> Préparer
+              <div className="mt-auto p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
+                {order.status === 'pending' && (
+                    <button onClick={() => updateStatus(order.id, 'preparing')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                        <Flame size={14} /> Préparer
                     </button>
                 )}
-                {order.status !== 'ready' && (
-                    <button onClick={() => updateStatus(order.id, 'ready')} className="bg-green-600 text-white px-3 py-2 rounded-[var(--radius-sm)] text-xs flex items-center gap-1 hover:bg-green-700">
-                        <span className="material-symbols-outlined text-sm">check_circle</span> Prêt
+                {order.status === 'preparing' && (
+                    <button onClick={() => updateStatus(order.id, 'ready')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-700 transition-colors shadow-lg shadow-green-100">
+                        <CheckCircle size={14} /> Prêt
+                    </button>
+                )}
+                {order.status === 'ready' && (
+                    <button disabled className="flex-1 bg-gray-200 text-gray-400 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
+                        <CheckCircle size={14} /> Terminé
                     </button>
                 )}
               </div>

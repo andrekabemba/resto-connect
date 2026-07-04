@@ -49,7 +49,7 @@ interface PosState {
   selectTable: (numero: number | null) => void;
   changeTableStatus: (numero: number, newStatus: TableStatus) => void;
   clearTable: (tableNumero: number) => void;
-  addToCart: (item: { id: string; nom: string; prix: number; imageUrl?: string }) => void;
+  addToCart: (item: { id: string; nom: string; prixVente: number; imageUrl?: string }) => void;
   updateQuantity: (id: string, delta: number) => void;
   removeItem: (id: string) => void;
   
@@ -100,7 +100,7 @@ export const usePosStore = create<PosState>((set) => ({
       product: {
         id: item.id,
         nom: item.nom,
-        prixVente: item.prix,
+        prixVente: item.prixVente,
         disponible: true,
         imageUrl: item.imageUrl
       },

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePosStore } from '../../post-salle/posSlice';
 import { PageTransition } from '../../../components/PageTransition';
+import { apiService } from '../../../services/apiService';
+import { Calendar, Users, MapPin, CheckCircle, X, Clock } from 'lucide-react';
 
 // 1. On définit proprement la structure locale d'un plat sélectionné pour la réservation
 interface PlatSelectionne {
@@ -11,15 +13,28 @@ interface PlatSelectionne {
 }
 
 export const ClientReservation: React.FC = () => {
-  // On extrait uniquement ce qui existe à 100% dans votre store actuel
-  const { tables, reservations, ajouterReservation, annulerReservation } = usePosStore();
-
-  // États du formulaire de réservation
+  const [dbTables, setDbTables] = useState<any[]>([]);
+  const [dbReservations, setDbReservations] = useState<any[]>([]);
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
   const [guests, setGuests] = useState(2);
   const [selectedTable, setSelectedTable] = useState<number | 'auto'>('auto');
   const [successMessage, setSuccessMessage] = useState(false);
+
+  useEffect(() => {
+    fetchTables();
+    fetchReservations();
+  }, []);
+
+  const fetchTables = async () => {
+    const res = await apiService.get('/tables');
+    setDbTables(res.data.tables || []);
+  };
+
+  const fetchReservations = async () => {
+    const res = await apiService.get('/reservations');
+    setDbReservations(res.data.reservations || []);
+  };
 
   // 2. Gestion de la sélection des plats au sein du composant (indépendant du panier POS)
   const [platsChoisis, setPlatsChoisis] = useState<PlatSelectionne[]>([]);
@@ -59,25 +74,35 @@ export const ClientReservation: React.FC = () => {
   // Calcul du prix total des plats sélectionnés
   const montantTotalPlats = platsChoisis.reduce((sum, item) => sum + (item.prix * item.quantite), 0);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!date || !time) return;
 
-    // Appel à votre action avec la signature exacte (sans rajouter de champs non supportés)
-    ajouterReservation({
-      dateHeure: `${date}T${time}`,
-      nbPersonnes: guests,
-      tableNumero: selectedTable === 'auto' ? (tablesLibres[0]?.numero || undefined) : selectedTable
-    });
+    try {
+      await apiService.post('/reservations', {
+        reservation_time: `${date}T${time}`,
+        party_size: guests,
+        table_id: selectedTable === 'auto' ? null : selectedTable,
+        customer_name: "Client", // À récupérer du profil
+        customer_phone: "000000000" // À récupérer du profil
+      });
 
-    setSuccessMessage(true);
-    setDate('');
-    setTime('');
-    setGuests(2);
-    setSelectedTable('auto');
-    setPlatsChoisis([]); // Vide la sélection de plats après succès
+      setSuccessMessage(true);
+      setDate('');
+      setTime('');
+      setGuests(2);
+      setSelectedTable('auto');
+      setPlatsChoisis([]);
+      fetchReservations();
+      setTimeout(() => setSuccessMessage(false), 5000);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-    setTimeout(() => setSuccessMessage(false), 5000);
+  const handleAnnuler = async (id: number) => {
+    await apiService.patch(`/reservations/${id}/status`, { status: 'cancelled' });
+    fetchReservations();
   };
 
   const getStatusBadge = (statut: string) => {
@@ -272,38 +297,40 @@ export const ClientReservation: React.FC = () => {
             <p className="text-xs text-gray-400 font-light mb-6">Suivi en direct de vos demandes</p>
 
             <div className="flex-1 space-y-4 overflow-y-auto pr-1">
-              {reservations.length === 0 ? (
+              {dbReservations.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center py-12 text-center text-gray-400 space-y-2">
-                  <span className="text-3xl"></span>
-                  <p className="text-xs font-light">Aucune réservation planifiée pour le moment.</p>
+                  <div className="w-12 h-12 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-200">
+                    <Calendar size={24} />
+                  </div>
+                  <p className="text-xs font-light">Aucune réservation planifiée.</p>
                 </div>
               ) : (
-                [...reservations].reverse().map((res) => (
+                [...dbReservations].reverse().map((res) => (
                   <div key={res.id} className="p-4 border border-gray-100 rounded-xl bg-gray-50/50 space-y-3 transition-all hover:border-gray-200">
                     <div className="flex justify-between items-start">
                       <div>
                         <p className="text-xs font-bold text-gray-400 font-mono uppercase tracking-wider">Ref: #RES-{res.id}</p>
                         <p className="text-sm font-black mt-0.5">
-                          {new Date(res.dateHeure).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à {new Date(res.dateHeure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                          {new Date(res.reservation_time).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })} à {new Date(res.reservation_time).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         </p>
                       </div>
-                      <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border rounded-md ${getStatusBadge(res.statut)}`}>
-                        {res.statut.replace('_', ' ')}
+                      <span className={`px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider border rounded-md ${getStatusBadge(res.status)}`}>
+                        {res.status}
                       </span>
                     </div>
 
                     <div className="flex justify-between items-center text-xs text-gray-500 border-t border-gray-100 pt-2 font-light">
-                      <span>{res.nbPersonnes} pers.</span>
-                      <span> Table N°{res.tableNumero || 'Auto'}</span>
+                      <span className="flex items-center gap-1"><Users size={12} /> {res.party_size} pers.</span>
+                      <span className="flex items-center gap-1"><MapPin size={12} /> Table {res.table_id || 'Auto'}</span>
                     </div>
 
-                    {res.statut === 'EN_ATTENTE' && (
+                    {res.status === 'pending' && (
                       <button
                         type="button"
-                        onClick={() => annulerReservation(res.id)}
-                        className="w-full py-1.5 mt-1 text-center bg-white hover:bg-red-50 border border-red-200 hover:border-red-300 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all"
+                        onClick={() => handleAnnuler(res.id)}
+                        className="w-full py-1.5 mt-1 text-center bg-white hover:bg-red-50 border border-red-200 hover:border-red-300 text-red-600 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2"
                       >
-                        Annuler la réservation
+                        <X size={14} /> Annuler
                       </button>
                     )}
                   </div>

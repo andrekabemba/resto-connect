@@ -16,14 +16,37 @@ router.get("/", async (req, res) => {
 
 // Admin : Ajouter un plat
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
-  const { category_id, name, description, price, station } = req.body;
+  const { category_id, name, description, price, station, imageUrl } = req.body;
   const { data, error } = await supabase
     .from("menu_items")
-    .insert([{ category_id, name, description, price, station }])
-    .select("id")
+    .insert([{ category_id, name, description, price, station, imageUrl, available: 1 }])
+    .select("*")
     .single();
   if (error) return res.status(500).json({ error: error.message });
-  res.status(201).json({ id: data.id });
+  res.status(201).json({ item: data });
+});
+
+// Admin : Modifier un plat
+router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
+  const { category_id, name, description, price, station, available, imageUrl } = req.body;
+  const { data, error } = await supabase
+    .from("menu_items")
+    .update({ category_id, name, description, price, station, available, imageUrl, updated_at: new Date().toISOString() })
+    .eq("id", req.params.id)
+    .select("*")
+    .single();
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ item: data });
+});
+
+// Admin : Supprimer un plat
+router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
+  const { error } = await supabase
+    .from("menu_items")
+    .delete()
+    .eq("id", req.params.id);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json({ success: true });
 });
 
 module.exports = router;
