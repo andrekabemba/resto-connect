@@ -14,6 +14,7 @@ import { MenuDisplay } from '../features/client-menu/components/MenuDisplay';
 import { CartSummary } from '../features/client-menu/components/CartSummary';
 import { PaymentPage } from '../features/client-menu/components/PaymentPage';
 import { ClientReservation } from '../features/client-menu/components/ClientReservation'; 
+import { OrderTrackingPage } from '../features/client-menu/components/OrderTrackingPage';
 
 // Admin Features
 import { AdminDashboard } from '../features/admin-dashboard/components/AdminDashboard';
@@ -39,6 +40,7 @@ export const appRouter = createBrowserRouter([
       { path: "connexion", element: <AuthForm /> },
       { path: "paiement", element: <PaymentPage /> },
       { path: "reservation", element: <ClientReservation /> },
+      { path: "tracking/:id", element: <OrderTrackingPage /> },
     ],
   },
 

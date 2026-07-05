@@ -16,40 +16,6 @@ async function serializeOrder(order) {
   return { ...order, items };
 }
 
-// Déduit le stock des ingrédients selon la fiche technique de chaque plat commandé.
-async function deductStockForOrder(orderId, resolvedItems) {
-  for (const { menuItem, quantity } of resolvedItems) {
-    const { data: recipe } = await supabaseService
-      .from("recipe_items")
-      .select("ingredient_id, quantity")
-      .eq("menu_item_id", menuItem.id);
-    
-    if (!recipe) continue;
-
-    for (const line of recipe) {
-      const { data: ingredient } = await supabaseService
-        .from("ingredients")
-        .select("*")
-        .eq("id", line.ingredient_id)
-        .single();
-      
-      if (!ingredient) continue;
-      
-      const consumed = line.quantity * quantity;
-      const newQuantity = Math.max(0, ingredient.quantity - consumed);
-      
-      await supabaseService
-        .from("ingredients")
-        .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
-        .eq("id", ingredient.id);
-        
-      await supabaseService
-        .from("stock_movements")
-        .insert([{ ingredient_id: ingredient.id, change: -consumed, reason: `Commande #${orderId}` }]);
-    }
-  }
-}
-
 // Cas d'utilisation "Passer commande" — client (pour soi) ou serveur (pour une table).
 router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async (req, res) => {
   const {
@@ -130,7 +96,6 @@ router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async
   }));
   
   await supabaseService.from("order_items").insert(orderItems);
-  await deductStockForOrder(order.id, resolvedItems);
   
   if (table_id) {
     await supabaseService.from("tables_restaurant").update({ status: 'occupee' }).eq("id", table_id);

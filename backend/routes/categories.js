@@ -6,7 +6,7 @@ const router = express.Router();
 
 // Public : liste des catégories (pour le menu)
 router.get("/", async (req, res) => {
-  const { data: categories, error } = await supabase
+  const { data: categories, error } = await supabaseService
     .from("categories")
     .select("*")
     .order("position", { ascending: true })

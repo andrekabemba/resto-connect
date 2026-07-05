@@ -48,7 +48,8 @@ export const PaymentPage: React.FC = () => {
         payment_method: "cash", // Simulé pour l'instant
       };
 
-      await apiService.post('/orders', orderData);
+      const response = await apiService.post('/orders', orderData);
+      const orderId = response.data.order.id; // Récupération de l'ID
 
       setTimeout(() => {
         setStep('waiting');
@@ -63,6 +64,9 @@ export const PaymentPage: React.FC = () => {
           setStep('success');
           setSubStepVisible(true);
           usePosStore.setState({ panier: [] });
+          
+          // Redirection directe vers le suivi
+          navigate(`/tracking/${orderId}`);
         }, 300);
       }, 4500);
     } catch (err: any) {

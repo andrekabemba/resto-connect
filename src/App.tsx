@@ -4,13 +4,15 @@ import React from 'react';
 import { RouterProvider } from 'react-router-dom';
 // Importation de notre configuration de routes que nous venons de créer
 import { appRouter } from './routes/appRoutes';
+import { Toaster } from 'react-hot-toast';
 
 // Définition du composant principal racine App
 const App: React.FC = () => {
   return (
-    // Injection du RouterProvider configuré avec notre appRouter. 
-    // C'est lui qui va écouter l'URL du navigateur et afficher le bon composant automatiquement.
-    <RouterProvider router={appRouter} />
+    <>
+      <Toaster position="top-right" />
+      <RouterProvider router={appRouter} />
+    </>
   );
 };
 

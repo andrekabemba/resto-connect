@@ -1,11 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
+import { supabase } from '../../../config/supabaseClient'; // IMPORT AJOUTÉ
 import { ProductForm } from './ProductForm';
-import { Package, Plus, Edit, Trash2, TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
+import { LoadingButton } from '../../../components/ui/LoadingButton';
+import { Package, Plus, Edit, Trash2, TrendingDown, TrendingUp, AlertTriangle, FileText } from 'lucide-react'; // Ajout FileText
+import { jsPDF } from "jspdf"; // Assurez-vous d'installer jspdf: npm install jspdf
+import "jspdf-autotable"; // npm install jspdf-autotable
 
 export const InventoryManager: React.FC = () => {
   const [items, setItems] = useState([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const fetchInventory = async () => {
     try {
@@ -16,14 +21,48 @@ export const InventoryManager: React.FC = () => {
     }
   };
 
+  const generatePDFReport = () => {
+    const doc = new jsPDF();
+    doc.text("Rapport d'Inventaire - RestoConnect", 14, 15);
+
+    // @ts-ignore
+    doc.autoTable({
+        head: [['Produit', 'Quantité', 'Seuil']],
+        body: items.map((item: any) => [item.name, item.quantity, item.threshold]),
+    });
+
+    doc.save('inventaire.pdf');
+  };
+
   useEffect(() => {
     fetchInventory();
+
+    const channel = supabase
+      .channel('inventory-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ingredients' },
+        () => { fetchInventory(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+// ... reste du composant
 
   const deleteItem = async (id: number) => {
     if(confirm("Confirmer la suppression ?")) {
-        await apiService.delete(`/inventory/${id}`);
-        fetchInventory();
+        setDeleteId(id);
+        try {
+            await apiService.delete(`/inventory/${id}`);
+            fetchInventory();
+        } catch (error) {
+            console.error('Erreur lors de la suppression:', error);
+        } finally {
+            setDeleteId(null);
+        }
     }
   };
 
@@ -36,12 +75,20 @@ export const InventoryManager: React.FC = () => {
             </div>
             Gestion des Stocks
         </h2>
-        <button 
-          onClick={() => setIsFormOpen(true)}
-          className="bg-[#D96B27] text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-orange-200 font-bold"
-        >
-          <Plus size={20} /> Ajouter un ingrédient
-        </button>
+        <div className="flex gap-2">
+            <button 
+              onClick={generatePDFReport}
+              className="bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-all shadow-sm font-bold"
+            >
+              <FileText size={20} /> Exporter PDF
+            </button>
+            <button 
+              onClick={() => setIsFormOpen(true)}
+              className="bg-[#D96B27] text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:opacity-90 transition-all shadow-lg shadow-orange-200 font-bold"
+            >
+              <Plus size={20} /> Ajouter un ingrédient
+            </button>
+        </div>
       </div>
       
       {isFormOpen && (
@@ -94,9 +141,9 @@ export const InventoryManager: React.FC = () => {
                       <button className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors">
                         <Edit size={18} />
                       </button>
-                      <button onClick={() => deleteItem(item.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors">
+                      <LoadingButton isLoading={deleteId === item.id} onClick={() => deleteItem(item.id)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg transition-colors">
                         <Trash2 size={18} />
-                      </button>
+                      </LoadingButton>
                     </div>
                   </td>
                 </tr>

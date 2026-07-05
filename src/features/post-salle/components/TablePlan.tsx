@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
-import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../../config/supabaseClient';
+import { LoadingButton } from '../../../components/ui/LoadingButton';
 import { Grid, Users, CreditCard, Bookmark, CheckCircle, PlusCircle, RefreshCw } from 'lucide-react';
 
-const TABLE_STATUSES: Record<string, { color: string, icon: any, label: string, btnColor: string }> = {
-  libre: { color: 'bg-green-50 border-green-100 text-green-700', icon: Grid, label: 'Libre', btnColor: 'bg-green-600' },
-  occupee: { color: 'bg-red-50 border-red-100 text-red-700', icon: Users, label: 'Occupée', btnColor: 'bg-red-600' },
-  encaissement: { color: 'bg-amber-50 border-amber-100 text-amber-700', icon: CreditCard, label: 'En caisse', btnColor: 'bg-amber-600' },
-  reservee: { color: 'bg-blue-50 border-blue-100 text-blue-700', icon: Bookmark, label: 'Réservée', btnColor: 'bg-blue-600' },
+const TABLE_STATUSES: Record<string, { color: string, icon: any, label: string }> = {
+  libre: { color: 'bg-green-50 border-green-100 text-green-700', icon: Grid, label: 'Libre' },
+  occupee: { color: 'bg-red-50 border-red-100 text-red-700', icon: Users, label: 'Occupée' },
+  encaissement: { color: 'bg-amber-50 border-amber-100 text-amber-700', icon: CreditCard, label: 'En caisse' },
+  reservee: { color: 'bg-blue-50 border-blue-100 text-blue-700', icon: Bookmark, label: 'Réservée' },
 };
 
 export const TablePlanPage: React.FC = () => {
   const [tables, setTables] = useState<any[]>([]);
-  const navigate = useNavigate();
+  const [loadingAction, setLoadingAction] = useState<Record<number, string>>({});
 
   const fetchTables = async () => {
     try {
@@ -23,15 +24,28 @@ export const TablePlanPage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchTables(); }, []);
+  useEffect(() => {
+    fetchTables();
+    const channel = supabase
+      .channel('tables-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tables_restaurant' }, () => { fetchTables(); })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const updateTableStatus = async (id: number, status: string) => {
-    await apiService.patch(`/tables/${id}/status`, { status });
-    fetchTables();
+    setLoadingAction({ ...loadingAction, [id]: status });
+    try {
+      await apiService.patch(`/tables/${id}/status`, { status });
+    } catch (error) {
+      console.error('Erreur mise à jour table:', error);
+    } finally {
+      setLoadingAction({ ...loadingAction, [id]: '' });
+    }
   };
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 bg-gray-50/50 min-h-screen">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-black text-[#112222] flex items-center gap-3">
             <div className="p-2 bg-[#D96B27] text-white rounded-2xl shadow-lg shadow-orange-100">
@@ -60,19 +74,19 @@ export const TablePlanPage: React.FC = () => {
               
               <div className="flex flex-col gap-2 w-full mt-2">
                 {table.status === 'libre' && (
-                    <button onClick={() => updateTableStatus(table.id, 'occupee')} className="bg-[#112222] text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#D96B27] transition-colors">
+                    <LoadingButton isLoading={loadingAction[table.id] === 'occupee'} onClick={() => updateTableStatus(table.id, 'occupee')} className="bg-[#112222] text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 hover:bg-[#D96B27] transition-all">
                         <PlusCircle size={14} /> Commander
-                    </button>
+                    </LoadingButton>
                 )}
                 {table.status === 'occupee' && (
-                    <button onClick={() => updateTableStatus(table.id, 'encaissement')} className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-100">
+                    <LoadingButton isLoading={loadingAction[table.id] === 'encaissement'} onClick={() => updateTableStatus(table.id, 'encaissement')} className="bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-amber-100">
                         <CreditCard size={14} /> Encaisser
-                    </button>
+                    </LoadingButton>
                 )}
                 {table.status === 'encaissement' && (
-                    <button onClick={() => updateTableStatus(table.id, 'libre')} className="bg-green-700 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-green-100">
+                    <LoadingButton isLoading={loadingAction[table.id] === 'libre'} onClick={() => updateTableStatus(table.id, 'libre')} className="bg-green-700 text-white text-[10px] font-black uppercase tracking-widest py-3 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-green-100">
                         <CheckCircle size={14} /> Libérer
-                    </button>
+                    </LoadingButton>
                 )}
               </div>
             </div>

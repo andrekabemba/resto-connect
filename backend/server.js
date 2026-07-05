@@ -11,6 +11,7 @@ const tableRoutes = require("./routes/tables");
 const reservationRoutes = require("./routes/reservations");
 const orderRoutes = require("./routes/orders");
 const reportRoutes = require("./routes/reports");
+const uploadRoutes = require("./routes/upload");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.use("/api/tables", tableRoutes);
 app.use("/api/reservations", reservationRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reports", reportRoutes);
+app.use("/api/upload", uploadRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

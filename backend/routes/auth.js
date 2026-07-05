@@ -14,40 +14,47 @@ function signToken(user) {
   );
 }
 
-// Inscription publique : toujours en tant que client. Les comptes du
-// personnel (gestionnaire, serveur, cuisinier) sont créés par un gestionnaire
-// via /api/users.
+// Inscription publique
 router.post("/register", async (req, res) => {
   const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: "Nom, email et mot de passe sont requis." });
   }
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Le mot de passe doit contenir au moins 6 caractères." });
+
+  // 1. Créer dans Supabase Auth
+  const { data: authData, error: authError } = await supabaseService.auth.admin.createUser({
+    email: email.toLowerCase(),
+    password: password,
+    email_confirm: true
+  });
+
+  if (authError) {
+    console.error("Erreur Auth Supabase:", authError);
+    return res.status(500).json({ error: "Erreur création Auth: " + authError.message });
   }
 
-  const { data: existing } = await supabase
+  // 2. Créer dans public.users
+  // On insère l'ID généré par Auth (UUID) dans la table users
+  const { data: user, error: dbError } = await supabaseService
     .from("users")
-    .select("id")
-    .eq("email", email.toLowerCase())
-    .single();
-  
-  if (existing) {
-    return res.status(409).json({ error: "Un compte existe déjà avec cet email." });
-  }
-
-  const hash = bcrypt.hashSync(password, 10);
-  const { data: user, error } = await supabase
-    .from("users")
-    .insert([{ name, email: email.toLowerCase(), password_hash: hash, role: "customer" }])
+    .insert([{ 
+      id: authData.user.id,
+      name, 
+      email: email.toLowerCase(), 
+      password_hash: 'managed_by_supabase_auth', 
+      role: "customer" 
+    }])
     .select("id, name, email, role")
     .single();
 
-  if (error) {
-    console.error("Erreur Supabase lors de l'inscription :", error);
-    return res.status(500).json({ 
-      error: "Impossible de créer le compte pour le moment. Veuillez réessayer." 
+  if (dbError) {
+    console.error("Erreur DB lors de l'inscription :", dbError);
+    // Supprimer l'utilisateur Auth si la DB échoue
+    await supabaseService.auth.admin.deleteUser(authData.user.id);
+    
+    return res.status(400).json({ 
+      error: "Impossible de finaliser votre inscription. Veuillez contacter le support." 
     });
   }
   

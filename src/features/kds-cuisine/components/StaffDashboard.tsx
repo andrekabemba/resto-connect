@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../../../services/apiService';
+import { supabase } from '../../../config/supabaseClient';
+import { LoadingButton } from '../../../components/ui/LoadingButton';
 import { ChefHat, Clock, CheckCircle, Flame, RefreshCw, Info } from 'lucide-react';
 
 const STATUS_CONFIG: Record<string, { color: string, icon: any, label: string, bgColor: string, textColor: string }> = {
@@ -10,6 +12,7 @@ const STATUS_CONFIG: Record<string, { color: string, icon: any, label: string, b
 
 export const KdsCuisinePage: React.FC = () => {
   const [orders, setOrders] = useState<any[]>([]);
+  const [loadingAction, setLoadingAction] = useState<Record<number, string>>({});
 
   const fetchOrders = async () => {
     try {
@@ -20,11 +23,26 @@ export const KdsCuisinePage: React.FC = () => {
     }
   };
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { 
+    fetchOrders(); 
+
+    const channel = supabase
+      .channel('kds-orders-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => { fetchOrders(); })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
 
   const updateStatus = async (id: number, status: string) => {
-    await apiService.patch(`/orders/${id}/status`, { status });
-    fetchOrders();
+    setLoadingAction({ ...loadingAction, [id]: status });
+    try {
+      await apiService.patch(`/orders/${id}/status`, { status });
+    } catch (error) {
+      console.error('Erreur mise à jour commande:', error);
+    } finally {
+      setLoadingAction({ ...loadingAction, [id]: '' });
+    }
   };
 
   return (
@@ -75,30 +93,18 @@ export const KdsCuisinePage: React.FC = () => {
                     ))}
                   </ul>
                 </div>
-
-                {order.notes && (
-                  <div className="mb-4 p-3 bg-red-50 border border-red-100 rounded-xl">
-                    <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest mb-1">Notes spéciales :</p>
-                    <p className="text-xs text-red-800 italic">{order.notes}</p>
-                  </div>
-                )}
               </div>
               
               <div className="mt-auto p-4 bg-gray-50 border-t border-gray-100 flex gap-2">
                 {order.status === 'pending' && (
-                    <button onClick={() => updateStatus(order.id, 'preparing')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-100">
+                    <LoadingButton isLoading={loadingAction[order.id] === 'preparing'} onClick={() => updateStatus(order.id, 'preparing')} className="flex-1 bg-blue-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-100">
                         <Flame size={14} /> Préparer
-                    </button>
+                    </LoadingButton>
                 )}
                 {order.status === 'preparing' && (
-                    <button onClick={() => updateStatus(order.id, 'ready')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-700 transition-colors shadow-lg shadow-green-100">
+                    <LoadingButton isLoading={loadingAction[order.id] === 'ready'} onClick={() => updateStatus(order.id, 'ready')} className="flex-1 bg-green-600 text-white py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-green-700 transition-all shadow-lg shadow-green-100">
                         <CheckCircle size={14} /> Prêt
-                    </button>
-                )}
-                {order.status === 'ready' && (
-                    <button disabled className="flex-1 bg-gray-200 text-gray-400 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 cursor-not-allowed">
-                        <CheckCircle size={14} /> Terminé
-                    </button>
+                    </LoadingButton>
                 )}
               </div>
             </div>

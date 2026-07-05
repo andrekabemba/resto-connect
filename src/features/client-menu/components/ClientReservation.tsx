@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { usePosStore } from '../../post-salle/posSlice';
 import { PageTransition } from '../../../components/PageTransition';
 import { apiService } from '../../../services/apiService';
+import { supabase } from '../../../config/supabaseClient'; // IMPORT AJOUTÉ
 import { Calendar, Users, MapPin, CheckCircle, X, Clock } from 'lucide-react';
 
 // 1. On définit proprement la structure locale d'un plat sélectionné pour la réservation
@@ -24,6 +25,19 @@ export const ClientReservation: React.FC = () => {
   useEffect(() => {
     fetchTables();
     fetchReservations();
+
+    const channel = supabase
+      .channel('client-reservation-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'reservations' },
+        () => { fetchReservations(); }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const fetchTables = async () => {
@@ -78,15 +92,24 @@ export const ClientReservation: React.FC = () => {
     e.preventDefault();
     if (!date || !time) return;
 
-    try {
-      await apiService.post('/reservations', {
+    console.log("Submitting reservation:", {
         reservation_time: `${date}T${time}`,
         party_size: guests,
         table_id: selectedTable === 'auto' ? null : selectedTable,
-        customer_name: "Client", // À récupérer du profil
-        customer_phone: "000000000" // À récupérer du profil
+        customer_name: "Client", 
+        customer_phone: "000000000"
+    });
+
+    try {
+      const response = await apiService.post('/reservations', {
+        reservation_time: `${date}T${time}`,
+        party_size: guests,
+        table_id: selectedTable === 'auto' ? null : selectedTable,
+        customer_name: "Client", 
+        customer_phone: "000000000"
       });
 
+      console.log("Reservation success:", response.data);
       setSuccessMessage(true);
       setDate('');
       setTime('');
@@ -95,8 +118,8 @@ export const ClientReservation: React.FC = () => {
       setPlatsChoisis([]);
       fetchReservations();
       setTimeout(() => setSuccessMessage(false), 5000);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Reservation submission error:", err.response?.data || err.message);
     }
   };
 

@@ -7,6 +7,7 @@ export const UserManager: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'waiter' });
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const fetchUsers = async () => {
     try {
@@ -30,6 +31,20 @@ export const UserManager: React.FC = () => {
       console.error('Erreur création utilisateur:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (id: number) => {
+    if(confirm("Supprimer cet employé ?")) {
+      setDeletingId(id);
+      try {
+        await apiService.delete(`/users/${id}`);
+        fetchUsers();
+      } catch (error) {
+        console.error('Erreur suppression utilisateur:', error);
+      } finally {
+        setDeletingId(null);
+      }
     }
   };
 
@@ -58,9 +73,9 @@ export const UserManager: React.FC = () => {
             <option value="cook">Cuisinier</option>
           </select>
         </div>
-        <button disabled={isLoading} type="submit" className="bg-[#D96B27] text-white p-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
-          <UserPlus size={18} /> {isLoading ? 'Ajout...' : 'Ajouter'}
-        </button>
+        <LoadingButton isLoading={isLoading} type="submit" className="bg-[#D96B27] text-white p-2.5 rounded-xl font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2">
+          <UserPlus size={18} /> Ajouter
+        </LoadingButton>
       </form>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -90,9 +105,9 @@ export const UserManager: React.FC = () => {
                   </span>
                 </td>
                 <td className="p-4 text-right">
-                  <button onClick={async () => { if(confirm("Supprimer cet employé ?")) { await apiService.delete(`/users/${u.id}`); fetchUsers(); } }} className="text-red-400 hover:text-red-600 p-2">
+                  <LoadingButton isLoading={deletingId === u.id} onClick={() => handleDeleteUser(u.id)} className="text-red-400 hover:text-red-600 p-2">
                     <Trash2 size={18} />
-                  </button>
+                  </LoadingButton>
                 </td>
               </tr>
             ))}
