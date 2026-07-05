@@ -1,12 +1,12 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
 router.get("/", authRequired, requireRole("admin"), async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("users")
     .select("id, name, email, role, active, created_at")
     .neq("role", "customer")
@@ -27,13 +27,13 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
     return res.status(400).json({ error: "Le mot de passe doit contenir au moins 6 caractères." });
   }
 
-  const { data: existing } = await supabase.from("users").select("id").eq("email", email.toLowerCase()).single();
+  const { data: existing } = await supabaseService.from("users").select("id").eq("email", email.toLowerCase()).single();
   if (existing) {
     return res.status(409).json({ error: "Un compte existe déjà avec cet email." });
   }
 
   const password_hash = bcrypt.hashSync(password, 10);
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("users")
     .insert([{ name: name.trim(), email: email.toLowerCase(), password_hash, role, active: true }])
     .select("id, name, email, role, active, created_at")
@@ -44,7 +44,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 });
 
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: existing, error: fetchError } = await supabase
+  const { data: existing, error: fetchError } = await supabaseService
     .from("users")
     .select("*")
     .eq("id", req.params.id)
@@ -64,7 +64,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
   const password_hash = password ? bcrypt.hashSync(password, 10) : existing.password_hash;
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("users")
     .update({ name, role, active, password_hash })
     .eq("id", req.params.id)
@@ -79,11 +79,11 @@ router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
   if (req.user.id === Number(req.params.id)) {
     return res.status(400).json({ error: "Vous ne pouvez pas supprimer votre propre compte." });
   }
-  const { data: existing } = await supabase.from("users").select("role").eq("id", req.params.id).single();
+  const { data: existing } = await supabaseService.from("users").select("role").eq("id", req.params.id).single();
   if (!existing || existing.role === "customer") {
     return res.status(404).json({ error: "Employé introuvable." });
   }
-  const { error } = await supabase.from("users").delete().eq("id", req.params.id);
+  const { error } = await supabaseService.from("users").delete().eq("id", req.params.id);
   if (error) return res.status(500).json({ error: error.message });
   res.json({ success: true });
 });

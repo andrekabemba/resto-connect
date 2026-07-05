@@ -1,0 +1,5 @@
+Identifiants générés par le script :
+- Admin : admin@restoconnect.com
+- Serveur : waiter@restoconnect.com
+- Cuisinier : cook@restoconnect.com
+- Mot de passe pour tous : password123

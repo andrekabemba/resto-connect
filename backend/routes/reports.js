@@ -1,5 +1,5 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -9,7 +9,7 @@ router.get("/dashboard", authRequired, async (req, res) => {
 
   // 1. Ventes du jour (pour Admin)
   const today = new Date().toISOString().split('T')[0];
-  const { data: salesData } = await supabase
+  const { data: salesData } = await supabaseService
     .from("orders")
     .select("total")
     .neq("status", "cancelled")
@@ -19,23 +19,23 @@ router.get("/dashboard", authRequired, async (req, res) => {
   const totalSales = salesData ? salesData.reduce((sum, o) => sum + o.total, 0) : 0;
 
   // 2. Commandes actives
-  const { count: activeOrdersCount } = await supabase
+  const { count: activeOrdersCount } = await supabaseService
     .from("orders")
     .select("*", { count: 'exact', head: true })
     .not("status", "in", "(served,cancelled)");
 
   // 3. Tables occupées
-  const { count: occupiedTablesCount } = await supabase
+  const { count: occupiedTablesCount } = await supabaseService
     .from("tables_restaurant")
     .select("*", { count: 'exact', head: true })
     .eq("status", "occupee");
     
-  const { count: totalTablesCount } = await supabase
+  const { count: totalTablesCount } = await supabaseService
     .from("tables_restaurant")
     .select("*", { count: 'exact', head: true });
 
   // 4. Ingrédients critiques
-  const { count: criticalStockCount } = await supabase
+  const { count: criticalStockCount } = await supabaseService
     .from("ingredients")
     .select("*", { count: 'exact', head: true })
     .filter("quantity", "lte", "threshold");
@@ -55,7 +55,7 @@ router.get("/summary", authRequired, requireRole("admin"), async (req, res) => {
   const start = from || "1970-01-01";
   const end = to || "2999-12-31";
 
-  const { data: orders } = await supabase
+  const { data: orders } = await supabaseService
     .from("orders")
     .select("*")
     .neq("status", "cancelled")
@@ -75,7 +75,7 @@ router.get("/summary", authRequired, requireRole("admin"), async (req, res) => {
 
   // Top Items
   const orderIds = orders.map(o => o.id);
-  const { data: orderItems } = await supabase
+  const { data: orderItems } = await supabaseService
     .from("order_items")
     .select("name, quantity, price")
     .in("order_id", orderIds);
@@ -91,7 +91,7 @@ router.get("/summary", authRequired, requireRole("admin"), async (req, res) => {
     .sort((a, b) => b.quantity - a.quantity)
     .slice(0, 8);
 
-  const { data: lowStock } = await supabase
+  const { data: lowStock } = await supabaseService
     .from("ingredients")
     .select("*")
     .filter("quantity", "lte", "threshold")

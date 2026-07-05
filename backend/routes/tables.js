@@ -1,11 +1,11 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
 router.get("/", authRequired, requireRole("admin", "waiter"), async (req, res) => {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("tables_restaurant")
     .select("*")
     .order("number", { ascending: true });
@@ -26,7 +26,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   const { number, capacity = 2 } = req.body;
   if (!number) return res.status(400).json({ error: "Le numéro de table est requis." });
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("tables_restaurant")
     .insert([{ number, capacity }])
     .select()
@@ -45,7 +45,7 @@ router.patch("/:id/status", authRequired, requireRole("admin", "waiter"), async 
     return res.status(400).json({ error: "Statut de table invalide." });
   }
   
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("tables_restaurant")
     .update({ status })
     .eq("id", req.params.id)
@@ -58,7 +58,7 @@ router.patch("/:id/status", authRequired, requireRole("admin", "waiter"), async 
 });
 
 router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { error } = await supabase
+  const { error } = await supabaseService
     .from("tables_restaurant")
     .delete()
     .eq("id", req.params.id);

@@ -1,51 +1,82 @@
-const axios = require('axios');
-const bcrypt = require('bcryptjs');
+const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-const api = axios.create({
-  baseURL: `${SUPABASE_URL}/rest/v1`,
-  headers: {
-    'apikey': SUPABASE_SERVICE_ROLE_KEY,
-    'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-    'Content-Type': 'application/json',
-    'Prefer': 'return=representation'
-  }
+if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+  throw new Error("SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY is missing in .env.");
+}
+
+// Create a Supabase admin client
+const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
+    auth: {
+        autoRefreshToken: false,
+        persistSession: false
+    }
 });
 
 async function seed() {
-  console.log("Seeding database via REST API...");
+  console.log("Seeding database via Supabase Admin API...");
 
   try {
-    // 1. Users
+    // 1. Users (via Supabase Auth)
     const users = [
-      { name: "Admin Resto", email: "admin@restoconnect.com", role: "admin", password: "password123" },
-      { name: "Serveur Jean", email: "waiter@restoconnect.com", role: "waiter", password: "password123" },
-      { name: "Chef Marie", email: "cook@restoconnect.com", role: "cook", password: "password123" }
+      { email: "admin@restoconnect.com", role: "admin", password: "password123", name: "Admin Resto" },
+      { email: "waiter@restoconnect.com", role: "waiter", password: "password123", name: "Serveur Jean" },
+      { email: "cook@restoconnect.com", role: "cook", password: "password123", name: "Chef Marie" }
     ];
 
     for (const u of users) {
-        const hash = bcrypt.hashSync(u.password, 10);
-        await api.post('/users', {
+        console.log(`Processing user: ${u.email}...`);
+        
+        // 1. Ensure user exists in Auth
+        let authUser;
+        const { data: existingUsers, error: listError } = await supabaseAdmin.auth.admin.listUsers();
+        authUser = existingUsers?.users?.find(user => user.email === u.email);
+
+        if (!authUser) {
+            const { data: createdUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                email: u.email,
+                password: u.password,
+                email_confirm: true,
+                user_metadata: { name: u.name, role: u.role }
+            });
+            if (authError) {
+                console.error(`Error creating auth user ${u.email}:`, authError);
+                continue;
+            }
+            authUser = createdUser.user;
+        }
+
+        // 2. Sync/Insert into public.users
+        const { data: upsertData, error: upsertError } = await supabaseAdmin.from('users').upsert({
+            // Do not insert ID, let DB auto-increment.
             name: u.name,
             email: u.email.toLowerCase(),
-            password_hash: hash,
             role: u.role,
-            active: true
-        }, { headers: { 'Prefer': 'resolution=merge-duplicates' } }).catch(e => console.log(`User ${u.email} already exists or error`));
+            active: true,
+            password_hash: 'managed_by_supabase_auth' // Dummy hash to satisfy not-null constraint
+        });
+        
+        if (upsertError) {
+            console.error(`Failed to sync user ${u.email} to public.users:`, upsertError);
+        } else {
+            console.log(`Successfully synced user ${u.email} to public.users`);
+        }
     }
 
     // 2. Categories
-    const { data: categories } = await api.post('/categories', [
+    const { data: categories, error: catError } = await supabaseAdmin.from('categories').upsert([
       { name: "Plats Principaux", position: 1 },
       { name: "Entrées", position: 0 },
       { name: "Boissons", position: 2 },
       { name: "Desserts", position: 3 }
-    ], { headers: { 'Prefer': 'resolution=merge-duplicates' } });
+    ], { onConflict: 'name' }).select();
+    
+    if (catError) console.error("Error seeding categories:", catError);
 
-    const getCatId = (name) => categories.find(c => c.name === name)?.id;
+    const getCatId = (name) => categories?.find(c => c.name === name)?.id;
 
     // 3. Menu Items
     const menuItems = [
@@ -55,7 +86,7 @@ async function seed() {
         price: 24.50,
         category_id: getCatId("Plats Principaux"),
         imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80",
-        available: 1,
+        available: true,
         station: "cuisine"
       },
       {
@@ -64,14 +95,14 @@ async function seed() {
         price: 19.00,
         category_id: getCatId("Plats Principaux"),
         imageUrl: "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80",
-        available: 1,
+        available: true,
         station: "cuisine"
       }
     ];
 
     for (const item of menuItems) {
       if (item.category_id) {
-         await api.post('/menu_items', item, { headers: { 'Prefer': 'resolution=merge-duplicates' } });
+         await supabaseAdmin.from('menu_items').upsert(item, { onConflict: 'name' });
       }
     }
 
@@ -80,7 +111,7 @@ async function seed() {
     for (let i = 1; i <= 10; i++) {
       tables.push({ number: i, capacity: i % 2 === 0 ? 4 : 2, status: 'libre' });
     }
-    await api.post('/tables_restaurant', tables, { headers: { 'Prefer': 'resolution=merge-duplicates' } });
+    await supabaseAdmin.from('tables_restaurant').upsert(tables, { onConflict: 'number' });
 
     console.log("Seeding completed successfully.");
     console.log("\nIdentifiants de test :");

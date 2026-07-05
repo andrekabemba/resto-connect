@@ -1,5 +1,5 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -7,7 +7,7 @@ const router = express.Router();
 const VALID_STATUSES = ["pending", "preparing", "ready", "served", "cancelled"];
 
 async function serializeOrder(order) {
-  const { data: items, error } = await supabase
+  const { data: items, error } = await supabaseService
     .from("order_items")
     .select("id, menu_item_id, name, price, quantity, station")
     .eq("order_id", order.id);
@@ -19,7 +19,7 @@ async function serializeOrder(order) {
 // Déduit le stock des ingrédients selon la fiche technique de chaque plat commandé.
 async function deductStockForOrder(orderId, resolvedItems) {
   for (const { menuItem, quantity } of resolvedItems) {
-    const { data: recipe } = await supabase
+    const { data: recipe } = await supabaseService
       .from("recipe_items")
       .select("ingredient_id, quantity")
       .eq("menu_item_id", menuItem.id);
@@ -27,7 +27,7 @@ async function deductStockForOrder(orderId, resolvedItems) {
     if (!recipe) continue;
 
     for (const line of recipe) {
-      const { data: ingredient } = await supabase
+      const { data: ingredient } = await supabaseService
         .from("ingredients")
         .select("*")
         .eq("id", line.ingredient_id)
@@ -38,12 +38,12 @@ async function deductStockForOrder(orderId, resolvedItems) {
       const consumed = line.quantity * quantity;
       const newQuantity = Math.max(0, ingredient.quantity - consumed);
       
-      await supabase
+      await supabaseService
         .from("ingredients")
         .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
         .eq("id", ingredient.id);
         
-      await supabase
+      await supabaseService
         .from("stock_movements")
         .insert([{ ingredient_id: ingredient.id, change: -consumed, reason: `Commande #${orderId}` }]);
     }
@@ -83,7 +83,7 @@ router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async
   let total = 0;
 
   for (const cartItem of items) {
-    const { data: menuItem } = await supabase
+    const { data: menuItem } = await supabaseService
       .from("menu_items")
       .select("*")
       .eq("id", cartItem.menu_item_id)
@@ -101,7 +101,7 @@ router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async
   const waiterId = req.user.role === "waiter" ? req.user.id : (req.body.waiter_id || null);
   const userId = req.user.role === "customer" ? req.user.id : (req.body.user_id || null);
 
-  const { data: order, error: orderError } = await supabase
+  const { data: order, error: orderError } = await supabaseService
     .from("orders")
     .insert([{
       user_id: userId,
@@ -129,11 +129,11 @@ router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async
     station: menuItem.station
   }));
   
-  await supabase.from("order_items").insert(orderItems);
+  await supabaseService.from("order_items").insert(orderItems);
   await deductStockForOrder(order.id, resolvedItems);
   
   if (table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'occupee' }).eq("id", table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'occupee' }).eq("id", table_id);
   }
 
   res.status(201).json({ order: await serializeOrder(order) });
@@ -142,7 +142,7 @@ router.post("/", authRequired, requireRole("customer", "waiter", "admin"), async
 // Liste des commandes. Filtrage selon le rôle :
 router.get("/", authRequired, async (req, res) => {
   const { status, active_only } = req.query;
-  let query = supabase.from("orders").select("*");
+  let query = supabaseService.from("orders").select("*");
 
   if (req.user.role === "customer") {
     query = query.eq("user_id", req.user.id);
@@ -161,7 +161,7 @@ router.get("/", authRequired, async (req, res) => {
 });
 
 router.get("/:id", authRequired, async (req, res) => {
-  const { data: order, error } = await supabase
+  const { data: order, error } = await supabaseService
     .from("orders")
     .select("*")
     .eq("id", req.params.id)
@@ -180,7 +180,7 @@ router.patch("/:id/status", authRequired, requireRole("admin", "waiter", "cook")
     return res.status(400).json({ error: "Statut invalide." });
   }
   
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("orders")
     .select("*")
     .eq("id", req.params.id)
@@ -192,19 +192,19 @@ router.patch("/:id/status", authRequired, requireRole("admin", "waiter", "cook")
     return res.status(403).json({ error: "Le cuisinier ne peut faire passer la commande qu'en préparation ou prête." });
   }
 
-  await supabase
+  await supabaseService
     .from("orders")
     .update({ status, updated_at: new Date().toISOString() })
     .eq("id", req.params.id);
 
   if (status === "served" && existing.table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'encaissement' }).eq("id", existing.table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'encaissement' }).eq("id", existing.table_id);
   }
   if (status === "cancelled" && existing.table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
   }
 
-  const { data: order } = await supabase
+  const { data: order } = await supabaseService
     .from("orders")
     .select("*")
     .eq("id", req.params.id)
@@ -214,7 +214,7 @@ router.patch("/:id/status", authRequired, requireRole("admin", "waiter", "cook")
 });
 
 router.post("/:id/pay", authRequired, requireRole("admin", "waiter", "customer"), async (req, res) => {
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("orders")
     .select("*")
     .eq("id", req.params.id)
@@ -229,16 +229,16 @@ router.post("/:id/pay", authRequired, requireRole("admin", "waiter", "customer")
     return res.status(400).json({ error: "Cette commande est déjà payée." });
   }
 
-  await supabase
+  await supabaseService
     .from("orders")
     .update({ payment_status: 'paid', updated_at: new Date().toISOString() })
     .eq("id", req.params.id);
     
   if (existing.table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
   }
 
-  const { data: order } = await supabase
+  const { data: order } = await supabaseService
     .from("orders")
     .select("*")
     .eq("id", req.params.id)

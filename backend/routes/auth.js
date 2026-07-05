@@ -1,8 +1,8 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-const supabase = require("../db/supabaseClient");
 const { authRequired, JWT_SECRET } = require("../middleware/auth");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 
 const router = express.Router();
 
@@ -61,15 +61,28 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Email et mot de passe sont requis." });
   }
 
-  const { data: user, error } = await supabase
+  // 1. Authentifier via Supabase Auth
+  const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    email: email.toLowerCase(),
+    password: password,
+  });
+
+  if (authError) {
+    return res.status(401).json({ error: "Email ou mot de passe incorrect." });
+  }
+
+  // 2. Récupérer les infos utilisateur dans votre table public.users
+  const { data: user, error: userError } = await supabaseService
     .from("users")
     .select("*")
     .eq("email", email.toLowerCase())
     .single();
 
-  if (error || !user || !bcrypt.compareSync(password, user.password_hash)) {
-    return res.status(401).json({ error: "Email ou mot de passe incorrect." });
+  if (userError || !user) {
+    console.error("Erreur de récupération de l'utilisateur :", userError);
+    return res.status(401).json({ error: "Utilisateur introuvable dans la base de données." });
   }
+  
   if (!user.active) {
     return res.status(403).json({ error: "Ce compte a été désactivé." });
   }

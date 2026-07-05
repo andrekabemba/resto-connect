@@ -1,12 +1,12 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
 // Cas d'utilisation "Gérer inventaire" — suivi et contrôle des stocks.
 router.get("/", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: ingredients, error } = await supabase
+  const { data: ingredients, error } = await supabaseService
     .from("ingredients")
     .select("*")
     .order("name", { ascending: true });
@@ -19,7 +19,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   if (!name || !name.trim()) {
     return res.status(400).json({ error: "Le nom de l'ingrédient est requis." });
   }
-  const { data: ingredient, error } = await supabase
+  const { data: ingredient, error } = await supabaseService
     .from("ingredients")
     .insert([{ name: name.trim(), unit, quantity, threshold }])
     .select()
@@ -29,7 +29,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 });
 
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("ingredients")
     .select("*")
     .eq("id", req.params.id)
@@ -37,7 +37,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
   if (findError || !existing) return res.status(404).json({ error: "Ingrédient introuvable." });
 
   const { name = existing.name, unit = existing.unit, threshold = existing.threshold } = req.body;
-  const { data: ingredient, error } = await supabase
+  const { data: ingredient, error } = await supabaseService
     .from("ingredients")
     .update({ name, unit, threshold, updated_at: new Date().toISOString() })
     .eq("id", req.params.id)
@@ -49,7 +49,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
 // Mouvement de stock manuel : réception de marchandise, perte, correction d'inventaire...
 router.post("/:id/movement", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("ingredients")
     .select("*")
     .eq("id", req.params.id)
@@ -64,15 +64,15 @@ router.post("/:id/movement", authRequired, requireRole("admin"), async (req, res
 
   const newQuantity = Math.max(0, existing.quantity + delta);
   
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseService
     .from("ingredients")
     .update({ quantity: newQuantity, updated_at: new Date().toISOString() })
     .eq("id", req.params.id);
   if (updateError) return res.status(500).json({ error: updateError.message });
 
-  await supabase.from("stock_movements").insert([{ ingredient_id: req.params.id, change: delta, reason }]);
+  await supabaseService.from("stock_movements").insert([{ ingredient_id: req.params.id, change: delta, reason }]);
 
-  const { data: ingredient } = await supabase
+  const { data: ingredient } = await supabaseService
     .from("ingredients")
     .select("*")
     .eq("id", req.params.id)
@@ -81,14 +81,14 @@ router.post("/:id/movement", authRequired, requireRole("admin"), async (req, res
 });
 
 router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { error } = await supabase.from("ingredients").delete().eq("id", req.params.id);
+  const { error } = await supabaseService.from("ingredients").delete().eq("id", req.params.id);
   if (error) return res.status(404).json({ error: "Ingrédient introuvable." });
   res.json({ success: true });
 });
 
 // Fiche technique d'un plat : ingrédients et quantités nécessaires.
 router.get("/recipe/:menuItemId", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: recipe, error } = await supabase
+  const { data: recipe, error } = await supabaseService
     .from("recipe_items")
     .select("id, ingredient_id, quantity, ingredients(name, unit)")
     .eq("menu_item_id", req.params.menuItemId);
@@ -109,7 +109,7 @@ router.put("/recipe/:menuItemId", authRequired, requireRole("admin"), async (req
     return res.status(400).json({ error: "La fiche technique doit être une liste d'ingrédients." });
   }
 
-  await supabase.from("recipe_items").delete().eq("menu_item_id", req.params.menuItemId);
+  await supabaseService.from("recipe_items").delete().eq("menu_item_id", req.params.menuItemId);
   
   const insertItems = items
     .filter(item => item.ingredient_id && item.quantity > 0)
@@ -120,10 +120,10 @@ router.put("/recipe/:menuItemId", authRequired, requireRole("admin"), async (req
     }));
     
   if (insertItems.length > 0) {
-      await supabase.from("recipe_items").insert(insertItems);
+      await supabaseService.from("recipe_items").insert(insertItems);
   }
 
-  const { data: recipe } = await supabase
+  const { data: recipe } = await supabaseService
     .from("recipe_items")
     .select("id, ingredient_id, quantity, ingredients(name, unit)")
     .eq("menu_item_id", req.params.menuItemId);

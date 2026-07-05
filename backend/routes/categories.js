@@ -1,5 +1,5 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -22,7 +22,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
     return res.status(400).json({ error: "Le nom de la catégorie est requis." });
   }
   
-  const { data: category, error } = await supabase
+  const { data: category, error } = await supabaseService
     .from("categories")
     .insert([{ name: name.trim(), position }])
     .select()
@@ -33,7 +33,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 });
 
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("categories")
     .select("*")
     .eq("id", req.params.id)
@@ -43,7 +43,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
   const { name = existing.name, position = existing.position } = req.body;
 
-  const { data: category, error } = await supabase
+  const { data: category, error } = await supabaseService
     .from("categories")
     .update({ name, position })
     .eq("id", req.params.id)
@@ -55,7 +55,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 });
 
 router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { error: findError } = await supabase
+  const { error: findError } = await supabaseService
     .from("categories")
     .delete()
     .eq("id", req.params.id);

@@ -1,5 +1,5 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -17,7 +17,7 @@ router.get("/", async (req, res) => {
 // Admin : Ajouter un plat
 router.post("/", authRequired, requireRole("admin"), async (req, res) => {
   const { category_id, name, description, price, station, imageUrl } = req.body;
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("menu_items")
     .insert([{ category_id, name, description, price, station, imageUrl, available: 1 }])
     .select("*")
@@ -29,7 +29,7 @@ router.post("/", authRequired, requireRole("admin"), async (req, res) => {
 // Admin : Modifier un plat
 router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
   const { category_id, name, description, price, station, available, imageUrl } = req.body;
-  const { data, error } = await supabase
+  const { data, error } = await supabaseService
     .from("menu_items")
     .update({ category_id, name, description, price, station, available, imageUrl, updated_at: new Date().toISOString() })
     .eq("id", req.params.id)
@@ -41,7 +41,7 @@ router.put("/:id", authRequired, requireRole("admin"), async (req, res) => {
 
 // Admin : Supprimer un plat
 router.delete("/:id", authRequired, requireRole("admin"), async (req, res) => {
-  const { error } = await supabase
+  const { error } = await supabaseService
     .from("menu_items")
     .delete()
     .eq("id", req.params.id);

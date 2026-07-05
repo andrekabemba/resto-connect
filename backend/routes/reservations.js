@@ -1,5 +1,5 @@
 const express = require("express");
-const supabase = require("../db/supabaseClient");
+const { supabase, supabaseService } = require("../db/supabaseClient");
 const { authRequired, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
@@ -12,7 +12,7 @@ router.post("/", authRequired, requireRole("customer"), async (req, res) => {
     return res.status(400).json({ error: "Nom, téléphone, nombre de convives et horaire sont requis." });
   }
 
-  const { data: reservation, error } = await supabase
+  const { data: reservation, error } = await supabaseService
     .from("reservations")
     .insert([{
         user_id: req.user.id,
@@ -29,14 +29,14 @@ router.post("/", authRequired, requireRole("customer"), async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
 
   if (table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'reservee' }).eq("id", table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'reservee' }).eq("id", table_id);
   }
 
   res.status(201).json({ reservation });
 });
 
 router.get("/", authRequired, async (req, res) => {
-  let query = supabase.from("reservations").select("*");
+  let query = supabaseService.from("reservations").select("*");
   if (req.user.role === "customer") {
     query = query.eq("user_id", req.user.id);
   } else if (!["admin", "waiter"].includes(req.user.role)) {
@@ -50,7 +50,7 @@ router.get("/", authRequired, async (req, res) => {
 });
 
 router.put("/:id", authRequired, async (req, res) => {
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("reservations")
     .select("*")
     .eq("id", req.params.id)
@@ -68,7 +68,7 @@ router.put("/:id", authRequired, async (req, res) => {
     table_id = existing.table_id,
   } = req.body;
 
-  const { data: reservation, error } = await supabase
+  const { data: reservation, error } = await supabaseService
     .from("reservations")
     .update({ party_size, reservation_time, notes, table_id })
     .eq("id", req.params.id)
@@ -85,7 +85,7 @@ router.patch("/:id/status", authRequired, async (req, res) => {
     return res.status(400).json({ error: "Statut invalide." });
   }
   
-  const { data: existing, error: findError } = await supabase
+  const { data: existing, error: findError } = await supabaseService
     .from("reservations")
     .select("*")
     .eq("id", req.params.id)
@@ -100,19 +100,19 @@ router.patch("/:id/status", authRequired, async (req, res) => {
     return res.status(403).json({ error: "Vous pouvez uniquement annuler votre réservation." });
   }
 
-  await supabase
+  await supabaseService
     .from("reservations")
     .update({ status })
     .eq("id", req.params.id);
 
   if (status === "cancelled" && existing.table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'libre' }).eq("id", existing.table_id);
   }
   if (status === "confirmed" && existing.table_id) {
-    await supabase.from("tables_restaurant").update({ status: 'reservee' }).eq("id", existing.table_id);
+    await supabaseService.from("tables_restaurant").update({ status: 'reservee' }).eq("id", existing.table_id);
   }
 
-  const { data: reservation } = await supabase
+  const { data: reservation } = await supabaseService
     .from("reservations")
     .select("*")
     .eq("id", req.params.id)
