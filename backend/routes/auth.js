@@ -54,7 +54,7 @@ router.post("/register", async (req, res) => {
     await supabaseService.auth.admin.deleteUser(authData.user.id);
     
     return res.status(400).json({ 
-      error: "Impossible de finaliser votre inscription. Veuillez contacter le support." 
+      error: "Erreur DB: " + dbError.message 
     });
   }
   
